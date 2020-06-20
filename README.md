@@ -13,12 +13,13 @@ ioBroker Adapter for WiFi Light
 ## Info
 Supports LW12, LD382 and LD382A.
 Support for Mi-Light/LimitlessLED RGBW added.
+Support for LD282A with 5 channels added. Use Device name LD282A5
 
 ## Initial Creation
 This adapter was initialy created by @soef at https://github.com/soef/ioBroker.wifilight but not maintained any more, so we moved it to iobroker-community so that bugs could be fixed. thanks @soef for his work.
 
 ### How to use the command state:
-+ Possible identifiers are: ``red, r, green, g, blue, b, bri, sat, transition, on, off``
++ Possible identifiers are: ``red, r, green, g, blue, b, white, w, cwhite, c, bri, sat, transition, on, off``
 + The string can be a JSON with or without parentheses. 
 + You can also assign a value by =
 + Range of colors: ```0..255``` 
@@ -37,9 +38,9 @@ on
 To change the color you do not have to use all three vallues.
 For example, ``` red = 0 ```, blue and green will stay unchanged.
 
-### r, g, b, w States:
+### r, g, b, w, c States:
 + Values 0..255
-+ \#rrggbb[ww]
++ \#rrggbb[ww][cc]
 
 ## Installation
 Use the Adapter panel in iobroker to add an instance.

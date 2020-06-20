@@ -9,7 +9,8 @@ const VARS = {
     white: -6,
     bright: -7,
     separator: -8,
-    sepNoDelay: -9
+    sepNoDelay: -9,
+	cwhite: -10
 };
 
 exports.VARS = VARS;
@@ -45,7 +46,8 @@ exports.knownDeviceNames = {
     'Mi-Light':        { type: 'MiLight', port: 8899 },
     'AK001-ZJ100':     { type: 'LD382A' /*, magichome port: 5577*/ },
     'AK001-ZJ200':     { type: 'LD382A' /*, magichome port: 5577*/ },
-    'AK001-ZJ200':     { type: 'LD686' /*, magichome port: 5577*/ }
+    'AK001-ZJ200':     { type: 'LD686' /*, magichome port: 5577*/ },
+	'AK001-ZJ200':     { type: 'LD382A5' /*, magichome port: 5577*/ }
 };
 
 
@@ -117,6 +119,44 @@ exports.LD382A = {
         };
     }
 };
+
+exports.LD382A5 = {
+    useCheckSum: true,
+    port: 5577,
+    //onlyConnectOnWrite: true,
+
+    delay: 10,
+    responseLen: 14,
+    on: [0x71, 0x23, 0x0f],
+    off: [0x71, 0x24, 0x0f],
+    rgb: [0x31, VARS.red, VARS.green, VARS.blue,  0x00      , 0x00       , 0x00, 0x0f],
+    rgbw: [0x31, VARS.red, VARS.green, VARS.blue, VARS.white, VARS.cwhite, 0x00, 0x0f],
+    progOn: [0x61, VARS.prog, VARS.speed, 0x0f],
+    progOff: [0x61, 0x61     , 0x00,      0x0f],
+    progNo: [0x61, VARS.prog, VARS.speed, 0x0f],
+    statusRequest: [0x81, 0x8A, 0x8B],
+    programNames: programNames,
+
+    decodeResponse: function(data) {
+        if (data[0] !== 129) return null;
+        //[129, 4, 35, 97, 33, 9, 11, 22, 33, 255, 3, 0, 0, 119]
+        return {
+            //power: ((data[2] === 0x23) ? true : false),
+            on: ((data[2] === 0x23) ? true : false),
+            //power: ((data[13] & 0x01) ? true : false),
+            //power: ((data[13] & 0x01) ? false : true),
+            progNo: data[3],//mode
+            progOn: ((data[3] === 0x61) ? false : true), //modeRun
+            progSpeed: data[5], //modeSpeed
+            red: data[6],
+            green: data[7],
+            blue: data[8],
+            white: data[9],
+            cwhite: data[11]
+        };
+    }
+};
+
 
 exports.LD686 = {
      useCheckSum: true,

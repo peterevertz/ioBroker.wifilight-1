@@ -88,10 +88,11 @@ var usedStateNames = {
     on:          { n: 'on',        g:3, val: false, common: { min: false, max: true, role: "switch" }},
     bri:         { n: 'bri',       g:3, val: 100,   common: { min: 0, max: 100, unit: '%', desc: '0..100%', role: "level.dimmer" }},
     ct:          { n: 'ct',        g:1, val: 0,     common: { min: 0, max: 5000, unit: '°K', desc: 'temperature in °Kelvin 0..5000', role: "level.color.temperature" }},
-    red:         { n: 'r',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww] (hex)', role: "level.color.red" }},
-    green:       { n: 'g',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww] (hex)', role: "level.color.green" }},
-    blue:        { n: 'b',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww] (hex)', role: "level.color.blue" }},
-    white:       { n: 'w',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww] (hex)', role: "level.color.white" }},
+    red:         { n: 'r',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww][cc] (hex)', role: "level.color.red" }},
+    green:       { n: 'g',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww][cc] (hex)', role: "level.color.green" }},
+    blue:        { n: 'b',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww][cc] (hex)', role: "level.color.blue" }},
+    white:       { n: 'w',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww][cc] (hex)', role: "level.color.white" }},
+	cwhite:      { n: 'c',         g:3, val: 0,     common: { min: 0, max: 255, desc: '0..255 or #rrggbb[ww][cc] (hex)', role: "level.color.cwhite" }},
     disco:       { n: 'disco',     g:2, val: 1,     common: { min: 1, max: 9, desc: '1..9' }},
     progNo:      { n: 'progNo',    g:1, val: 38,    common: { min: 35, max: 56, desc: '37..56, 97=none' }},
     progOn:      { n: 'progOn',    g:1, val: false, common: { min: false, max: true, desc: 'program on/off' }},
@@ -117,6 +118,9 @@ function parseHexColors(val) {
     };
     if (val.length > 7) {
         co.w = parseInt(val.substr(6, 2), 16);
+    }
+    if (val.length > 9) {
+        co.c = parseInt(val.substr(8, 2), 16);
     }
     if (ar && ar.length > 1) {
         var m = Number('.' + ar[1]);
@@ -197,6 +201,7 @@ WifiLight.prototype.createDevice = function (cb) {
     wifi[this.dev.getFullId()] = this;
     for (var j in usedStateNames) {
         if (j === 'white' && this.cmds.rgbw === undefined) continue;
+		if (j === 'cwhite' && this.cmds.rgbw === undefined) continue;
         var st = Object.assign({}, usedStateNames[j]);
         if ((j === 'progNo' || j==='disco') && this.cmds.programNames) st.common.states = this.cmds.programNames;
         if (st.g & this.cmds.g) {
@@ -229,6 +234,7 @@ WifiLight.prototype.onStateChange = function (channel, stateName, val) {
         case 'g':
         case 'b':
         case 'w':
+		case 'c':
         case 'sat':
             var co;
             if (typeof val === 'string' && val[0] === '#') {
@@ -273,8 +279,8 @@ WifiLight.prototype.onStateChange = function (channel, stateName, val) {
             this.addToQueue(channel, val ? this.cmds.progOn : this.cmds.progOff);
             break;
         case usedStateNames.command.n:
-            var v = val.replace(/(^on$|red|green|blue|transition|bri|off)/g, function(match, p) { return { '#': '#', off:'off:1', on:'on:1', red:'r', green:'g', blue:'b', white: 'w', transition:'x', bri:'l'/*, off:'on:0'*/} [match] });
-            v = v.replace(/\s|\"|;$|,$/g, '').replace(/=/g, ':').replace(/;/g, ',').replace(/true/g, 1).replace(/((on|off),{1})/g, '$2:1,').replace(/#((\d|[a-f]|[A-F]|[.])*)/g, 'h:"$1"').replace(/(r|g|b|w|x|l|sat|off|on|ct|h|p)/g, '"$1"').replace(/^\{?(.*?)\}?$/, '{$1}');
+            var v = val.replace(/(^on$|red|green|blue|transition|bri|off)/g, function(match, p) { return { '#': '#', off:'off:1', on:'on:1', red:'r', green:'g', blue:'b', white: 'w', cwhite: 'c',transition:'x', bri:'l'/*, off:'on:0'*/} [match] });
+            v = v.replace(/\s|\"|;$|,$/g, '').replace(/=/g, ':').replace(/;/g, ',').replace(/true/g, 1).replace(/((on|off),{1})/g, '$2:1,').replace(/#((\d|[a-f]|[A-F]|[.])*)/g, 'h:"$1"').replace(/(r|g|b|w|c|x|l|sat|off|on|ct|h|p)/g, '"$1"').replace(/^\{?(.*?)\}?$/, '{$1}');
             try {
                 var colors = JSON.parse(v);
             } catch (e) {
@@ -291,8 +297,8 @@ WifiLight.prototype.onStateChange = function (channel, stateName, val) {
             }
             if (!colors || typeof colors !== 'object') return;
             if(colors.off !== undefined) {
-                this.color(channel, {r:0, g:0, b:0, w: colors.w !== undefined ? 0 : undefined});
-                this.states.red = 0; this.states.green = 0; this.states.blue = 0; if (this.states.white !== undefined) this.states.white = 0;
+                this.color(channel, {r:0, g:0, b:0, w: colors.w !== undefined ? 0 : undefined, c: colors.c !== undefined ? 0 : undefined});
+                this.states.red = 0; this.states.green = 0; this.states.blue = 0; if (this.states.white !== undefined) this.states.white = 0; if (this.states.cwhite !== undefined) this.states.cwhite = 0;
             }
             var o = fullExtend(this.getRGBStates(channel), colors);
             adapter.log.debug(JSON.stringify(o));
@@ -621,10 +627,12 @@ WifiLight.prototype.fade = function (channel, rgbw, transitionTime) {
         this.color(channel, rgbw);
         return;
     }
-    var co = { r: this.states.red, g: this.states.green, b: this.states.blue, w: this.states.white};
+    var co = { r: this.states.red, g: this.states.green, b: this.states.blue, w: this.states.white,c: this.states.cwhite};
     var dif= { r: rgbw.r - co.r, g: rgbw.g - co.g, b: rgbw.b - co.b};
     dif.w = (rgbw.w != undefined && co.w != undefined) ? rgbw.w - co.w : 0;
-    var maxSteps = Math.max(Math.abs(dif.r), Math.abs(dif.g), Math.abs(dif.b), Math.abs(dif.w), 1);
+    dif.c = (rgbw.c != undefined && co.c != undefined) ? rgbw.c - co.c : 0;
+
+    var maxSteps = Math.max(Math.abs(dif.r), Math.abs(dif.g), Math.abs(dif.b), Math.abs(dif.w), Math.abs(dif.c), 1);
 
     maxSteps = Math.min ((transitionTime*100) / this.cmds.delay, maxSteps);
 
@@ -632,6 +640,7 @@ WifiLight.prototype.fade = function (channel, rgbw, transitionTime) {
     dif.g /= maxSteps;
     dif.b /= maxSteps;
     dif.w /= maxSteps;
+	dif.c /= maxSteps;
 
     var steps = maxSteps;
     var delay = parseInt(transitionTime*100 / maxSteps);
@@ -641,6 +650,7 @@ WifiLight.prototype.fade = function (channel, rgbw, transitionTime) {
         co.g += dif.g;
         co.b += dif.b;
         if (co.w != undefined) co.w += dif.w;
+		if (co.c != undefined) co.c += dif.c;
         this.color(channel, roundRGB(co, true), { delay:delay });
     }
 };
@@ -648,7 +658,9 @@ WifiLight.prototype.fade = function (channel, rgbw, transitionTime) {
 WifiLight.prototype.color = function (channel, rgbw, opt) {
     rgbw.w == undefined ?
         this.addToQueue(channel, this.cmds.rgb, rgbw.r, rgbw.g, rgbw.b, opt) :
-        this.addToQueue(channel, this.cmds.rgbw, rgbw.r, rgbw.g, rgbw.b, rgbw.w, opt);
+		rgbw.c == undefined ?
+			this.addToQueue(channel, this.cmds.rgbw, rgbw.r, rgbw.g, rgbw.b, rgbw.w, opt):
+			this.addToQueue(channel, this.cmds.rgbw, rgbw.r, rgbw.g, rgbw.b, rgbw.w, rgbw.c, opt);
 };
 
 WifiLight.prototype.ct = function (channel, temp, transitionTime) {
@@ -667,7 +679,8 @@ WifiLight.prototype.getRGBStates = function (channel) {
         r: this.states.red,
         g: this.states.green,
         b: this.states.blue,
-        w: this.states.white
+        w: this.states.white,
+		c: this.states.cwhite
     };
 };
 
@@ -735,8 +748,10 @@ WifiLight.prototype.onData = function (data) {
             this.dev.set(usedStateNames.progOn.n, this.states.progOn);
             this.dev.set(usedStateNames.progSpeed.n, this.states.progSpeed);
             this.dev.set(usedStateNames.white.n, this.states.white);
+			this.dev.set(usedStateNames.cwhite.n, this.states.cwhite);
             var rgb = '#' + this.states.red.toHex() + this.states.green.toHex() + this.states.blue.toHex();
             if (this.states.white != undefined) rgb += this.states.white.toHex();
+			if (this.states.cwhite != undefined) rgb += this.states.cwhite.toHex();
             this.dev.set(usedStateNames.rgb.n, rgb);
             devices.update();
         }
@@ -753,7 +768,7 @@ var MiLight = function MiLight (config, zone, cb) {
     this.zone = zone;
     this.cmds = clone(this.cmds);
     this.cmds.setZone(this.zone);
-    this.states = { on: 0, red: 0, green: 0, blue: 0, white: 0 };
+    this.states = { on: 0, red: 0, green: 0, blue: 0, white: 0, cwhite: 0 };
     this.writeTimer = soef.Timer();
     this.isOnline = 'on demand';
 };
